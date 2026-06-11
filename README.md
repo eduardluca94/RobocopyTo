@@ -52,11 +52,11 @@ loss, not undo. Failed transfers keep their staging until you choose **Resume**,
 
 ## Install
 
-From a [release](https://github.com/REPLACE-ME/RobocopyTo/releases):
+From a [release](https://github.com/eduardluca94/RobocopyTo/releases):
 
 ```powershell
 # one-liner (downloads the latest release and installs)
-irm https://github.com/REPLACE-ME/RobocopyTo/releases/latest/download/install.ps1 | iex
+irm https://github.com/eduardluca94/RobocopyTo/releases/latest/download/install.ps1 | iex
 ```
 
 or download **`RobocopyTo.zip`**, extract, and run `install.ps1` — or double-click
@@ -67,7 +67,7 @@ and the one-liner are the reliable paths.)
 From source:
 
 ```powershell
-git clone https://github.com/REPLACE-ME/RobocopyTo
+git clone https://github.com/eduardluca94/RobocopyTo
 cd RobocopyTo
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```

@@ -213,7 +213,7 @@ function Show-RtSettingsWindow {
         else { $ui.HistoryStatus.Text = 'No log for this operation.' }
     }.GetNewClosure())
 
-    $ui.RepoLink.Add_Click({ Start-Process 'https://github.com/REPLACE-ME/RobocopyTo' })
+    $ui.RepoLink.Add_Click({ Start-Process 'https://github.com/eduardluca94/RobocopyTo' })
     $ui.LogsLink.Add_Click({ Start-Process explorer.exe -ArgumentList ('"' + $script:RtAppDir + '"') }.GetNewClosure())
 
     $ui.SaveBtn.Add_Click({

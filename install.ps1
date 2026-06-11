@@ -4,7 +4,7 @@
 # Ways to run it:
 #   from a clone or an extracted release zip:   .\install.ps1
 #   straight from the web (latest release):
-#     irm https://github.com/REPLACE-ME/RobocopyTo/releases/latest/download/install.ps1 | iex
+#     irm https://github.com/eduardluca94/RobocopyTo/releases/latest/download/install.ps1 | iex
 #
 # What it does (all under HKCU + %LOCALAPPDATA%, nothing machine-wide unless you
 # opt into the certificate trust):
@@ -25,7 +25,7 @@ param(
     [switch]$TopLevelMenu,      # register the Win11 top-level menu without asking
     [switch]$SkipTopLevelMenu,  # never touch the top-level menu / certificates
     [switch]$Quiet,
-    [string]$Repo = 'REPLACE-ME/RobocopyTo'   # only used by the web bootstrap
+    [string]$Repo = 'eduardluca94/RobocopyTo'   # only used by the web bootstrap
 )
 $ErrorActionPreference = 'Stop'
 function Say($m) { if (-not $Quiet) { Write-Host $m } }
