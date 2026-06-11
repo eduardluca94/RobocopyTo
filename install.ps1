@@ -69,13 +69,13 @@ if (-not $repo -or -not (Test-Path (Join-Path $repo 'src\RobocopyTo.Launch.ps1')
             } catch { }
         }
         if (-not $got) {
-            throw "Could not download the release bundle. A web filter or antivirus may be blocking zip downloads on this network - download $zipUrl in a browser, extract it, and run install.ps1 from there."
+            throw "Could not download the release bundle. A web filter or antivirus may be blocking zip downloads on this network - download $zipUrl in a browser, extract it, and double-click install.cmd."
         }
         # a filter can also substitute a block page: make sure these are zip bytes
         $fs = [System.IO.File]::OpenRead($zip); $magic = New-Object byte[] 2
         $null = $fs.Read($magic, 0, 2); $fs.Dispose()
         if ($magic[0] -ne 0x50 -or $magic[1] -ne 0x4B) {
-            throw "The downloaded file is not the release bundle (a web filter may have replaced it) - download $zipUrl in a browser, extract it, and run install.ps1 from there."
+            throw "The downloaded file is not the release bundle (a web filter may have replaced it) - download $zipUrl in a browser, extract it, and double-click install.cmd."
         }
     }
     Expand-Archive -Path $zip -DestinationPath $tmp -Force

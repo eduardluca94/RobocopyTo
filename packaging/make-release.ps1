@@ -72,7 +72,7 @@ try {
         Copy-Item (Join-Path $repo "native\$f") (Join-Path $stage 'native') -Force
     }
     Get-ChildItem $buildDir -Filter 'RobocopyToMenu-*.dll' | Copy-Item -Destination (Join-Path $stage 'native\build') -Force
-    foreach ($f in 'install.ps1', 'uninstall.ps1', 'LICENSE') {
+    foreach ($f in 'install.ps1', 'install.cmd', 'uninstall.ps1', 'uninstall.cmd', 'LICENSE') {
         Copy-Item (Join-Path $repo $f) $stage -Force
     }
 

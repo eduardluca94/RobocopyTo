@@ -59,18 +59,21 @@ From a [release](https://github.com/eduardluca94/RobocopyTo/releases):
 irm https://github.com/eduardluca94/RobocopyTo/releases/latest/download/install.ps1 | iex
 ```
 
-or download **`RobocopyTo.zip`**, extract, and run `install.ps1` — or double-click
-**`RobocopyTo-setup.exe`** for a dialog-only flow. (Heads-up: the single-file exe is
-the kind of unsigned self-extractor that antivirus heuristics sometimes flag; the zip
-and the one-liner are the reliable paths.)
+or download **`RobocopyTo.zip`**, extract, and double-click **`install.cmd`** — or
+double-click **`RobocopyTo-setup.exe`** for a dialog-only flow. (Heads-up: the
+single-file exe is the kind of unsigned self-extractor that antivirus heuristics
+sometimes flag; the zip and the one-liner are the reliable paths.)
 
 > **If the one-liner stops with "NotFound" or "the downloaded file is not the release
 > bundle":** a web filter or antivirus on your network is intercepting archive
 > downloads from command-line tools (the installer tries three different download
 > stacks and verifies the bytes before trusting them). Download `RobocopyTo.zip` from
 > the [releases page](https://github.com/eduardluca94/RobocopyTo/releases) in a
-> browser instead, extract it, and run `install.ps1` from there — same result,
-> including the top-level-menu option.
+> browser instead, extract it, and double-click `install.cmd` — same result,
+> including the top-level-menu option. (`install.cmd` exists because browser
+> downloads carry the mark-of-the-web, and PowerShell's execution policy blocks
+> internet-marked scripts on many systems; the shim runs `install.ps1` with a
+> process-scoped bypass, changing nothing machine-wide.)
 
 From source:
 
