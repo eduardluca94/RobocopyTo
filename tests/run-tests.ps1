@@ -318,6 +318,23 @@ Check 'guard: drive-root paths never resolve drive-relatively (System32 bug)' {
     ShouldBe (Get-RtNormalizedPath ($env:TEMP + '\')) ([System.IO.Path]::GetFullPath($env:TEMP).TrimEnd('\')) 'normal dirs still trim the trailing slash'
 }
 
+Check 'guard: no script-scope variables inside GetNewClosure handlers' {
+    # GetNewClosure rebinds the block to a fresh dynamic module, where $script:X
+    # silently resolves to null (crashed History -> Open log in the field)
+    $bad = @()
+    foreach ($f in Get-ChildItem (Join-Path $repo 'src') -Filter '*.ps1') {
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$null)
+        $calls = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and
+                                          'GetNewClosure' -eq [string]$n.Member }, $true)
+        foreach ($c in $calls) {
+            $vars = $c.Expression.FindAll({ param($n) $n -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                                                      $n.VariablePath.IsScript }, $true)
+            foreach ($v in $vars) { $bad += ($f.Name + ':' + $v.Extent.StartLineNumber + ' ' + $v.Extent.Text) }
+        }
+    }
+    ShouldBe @($bad).Count 0 ('script-scope vars inside closures: ' + ($bad -join '; '))
+}
+
 Check 'guard: install.ps1 params are never clobbered by body assignments' {
     # PowerShell variables are case-insensitive: assigning $repo in the body
     # silently blanks a $Repo parameter (this 404d every "irm | iex" install).

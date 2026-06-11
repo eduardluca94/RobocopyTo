@@ -6,7 +6,7 @@
 # Dark mode: the same structure with the shared dark palette applied through
 # plain property styles (neutral selection, no accent chips) + dark titlebar.
 
-$script:RtVersion = '1.0.7'
+$script:RtVersion = '1.0.8'
 
 # Builds the window XAML for a given theme. Factored out so tests can parse both
 # theme variants without showing a window.
@@ -205,16 +205,21 @@ function Show-RtSettingsWindow {
         & $refreshHistory $ui
     }.GetNewClosure())
 
+    # script-scope variables resolve to null inside GetNewClosure handlers (the
+    # closure is rebound to a fresh dynamic module) - capture them as locals
+    $logDir = $script:RtLogDir
+    $dataDir = $script:RtAppDir
+
     $ui.OpenLogBtn.Add_Click({
         $sel = $ui.HistoryList.SelectedItem
         if (-not $sel) { return }
-        $log = Join-Path $script:RtLogDir ($sel.OpId + '.log')
+        $log = Join-Path $logDir ($sel.OpId + '.log')
         if (Test-Path -LiteralPath $log) { Start-Process notepad.exe -ArgumentList ('"' + $log + '"') }
         else { $ui.HistoryStatus.Text = 'No log for this operation.' }
     }.GetNewClosure())
 
     $ui.RepoLink.Add_Click({ Start-Process 'https://github.com/eduardluca94/RobocopyTo' })
-    $ui.LogsLink.Add_Click({ Start-Process explorer.exe -ArgumentList ('"' + $script:RtAppDir + '"') }.GetNewClosure())
+    $ui.LogsLink.Add_Click({ Start-Process explorer.exe -ArgumentList ('"' + $dataDir + '"') }.GetNewClosure())
 
     $ui.SaveBtn.Add_Click({
         $s = Get-RtSettings
