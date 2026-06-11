@@ -1,0 +1,54 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # decode the optional signing cert; without it the bundle ships unsigned
+      # (installs then need Developer Mode for the top-level menu - everything
+      # else works the same)
+      - name: Prepare signing certificate
+        if: ${{ github.event_name != 'pull_request' }}
+        shell: powershell
+        env:
+          PFX_B64: ${{ secrets.SIGNING_PFX_B64 }}
+        run: |
+          if ($env:PFX_B64) {
+            [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\signing.pfx", [Convert]::FromBase64String($env:PFX_B64))
+            "HAVE_PFX=1" | Out-File $env:GITHUB_ENV -Append -Encoding ascii
+          }
+
+      - name: Build release bundle
+        shell: powershell
+        env:
+          PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        run: |
+          if ($env:HAVE_PFX) {
+            .\packaging\make-release.ps1 -IncludeArm64 -PfxPath "$env:RUNNER_TEMP\signing.pfx" -PfxPassword "$env:PFX_PASSWORD"
+          } else {
+            .\packaging\make-release.ps1 -IncludeArm64
+          }
+
+      - name: Run test suite
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -STA -File tests\run-tests.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RobocopyTo-build
+          path: dist/
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*

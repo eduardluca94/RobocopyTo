@@ -1,0 +1,4 @@
+LIBRARY RobocopyToMenu
+EXPORTS
+    DllGetClassObject PRIVATE
+    DllCanUnloadNow PRIVATE

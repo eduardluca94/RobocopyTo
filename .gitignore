@@ -1,0 +1,22 @@
+# local scratch + internal session notes (machine-specific, never published)
+.recon.ps1
+.scratch/
+HANDOFF.md
+*.user
+
+# build outputs
+native/build/
+packaging/out/
+dist/
+*.dll
+*.exe
+*.pdb
+*.obj
+*.exp
+*.lib
+*.msix
+*.cer
+*.pfx
+
+# logs / local state (never committed)
+*.log
