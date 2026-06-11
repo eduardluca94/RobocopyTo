@@ -107,37 +107,43 @@ Copy-Item (Join-Path $repo 'src\*') -Destination $appDir -Recurse -Force
 $launchScript = Join-Path $appDir 'RobocopyTo.Launch.ps1'
 if (-not (Test-Path $launchScript)) { throw "Payload copy failed: $launchScript missing." }
 
-# --- 2. compile the launcher exe with the in-box C# compiler ---
-$csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
-if (-not (Test-Path $csc)) { $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe' }
-if (-not (Test-Path $csc)) { throw 'C# compiler (csc.exe) not found - .NET Framework 4.x is required.' }
+# --- 2. launcher + interop: prebuilt from a release bundle (fast, identical
+# hashes for everyone, signed when the release is), else compile with the
+# in-box C# compiler (source clones)
 $launcherExe = Join-Path $appDir 'RobocopyTo.exe'
-$cscArgs = @(
-    '/nologo', '/target:winexe', '/optimize+', "/out:$launcherExe",
-    '/reference:System.Windows.Forms.dll',
-    (Join-Path $appDir 'launcher\Launcher.cs')
-)
-& $csc $cscArgs 2>&1 | ForEach-Object { Write-Verbose $_ }
-if (-not (Test-Path $launcherExe)) { throw 'Launcher compilation failed.' }
-Say "  compiled RobocopyTo.exe"
-
-# precompile the interop layer too: Add-Type's per-launch csc spawn is the single
-# biggest avoidable chunk of menu-click -> dialog latency
 $interopDll = Join-Path $appDir 'RobocopyTo.Native.dll'
-$cscArgs2 = @(
-    '/nologo', '/target:library', '/optimize+', "/out:$interopDll",
-    '/reference:System.dll', '/reference:System.Core.dll',
-    (Join-Path $appDir 'Interop.cs')
-)
-& $csc $cscArgs2 2>&1 | ForEach-Object { Write-Verbose $_ }
-if (-not (Test-Path $interopDll)) { throw 'Interop compilation failed.' }
-Say "  compiled RobocopyTo.Native.dll"
+$preDir = Join-Path $repo 'prebuilt'
+if ((Test-Path (Join-Path $preDir 'RobocopyTo.exe')) -and (Test-Path (Join-Path $preDir 'RobocopyTo.Native.dll'))) {
+    Copy-Item (Join-Path $preDir 'RobocopyTo.exe') $launcherExe -Force
+    Copy-Item (Join-Path $preDir 'RobocopyTo.Native.dll') $interopDll -Force
+    Say "  using prebuilt launcher + interop"
+} else {
+    $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+    if (-not (Test-Path $csc)) { $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe' }
+    if (-not (Test-Path $csc)) { throw 'C# compiler (csc.exe) not found - .NET Framework 4.x is required.' }
+    $cscArgs = @(
+        '/nologo', '/target:winexe', '/optimize+', "/out:$launcherExe",
+        '/reference:System.Windows.Forms.dll',
+        (Join-Path $appDir 'launcher\Launcher.cs')
+    )
+    & $csc $cscArgs 2>&1 | ForEach-Object { Write-Verbose $_ }
+    if (-not (Test-Path $launcherExe)) { throw 'Launcher compilation failed.' }
+    Say "  compiled RobocopyTo.exe"
+    $cscArgs2 = @(
+        '/nologo', '/target:library', '/optimize+', "/out:$interopDll",
+        '/reference:System.dll', '/reference:System.Core.dll',
+        (Join-Path $appDir 'Interop.cs')
+    )
+    & $csc $cscArgs2 2>&1 | ForEach-Object { Write-Verbose $_ }
+    if (-not (Test-Path $interopDll)) { throw 'Interop compilation failed.' }
+    Say "  compiled RobocopyTo.Native.dll"
+}
 
 # --- write install metadata the DLL reads (InstallDir, last-op marker home) ---
 $swKey = 'HKCU:\Software\RobocopyTo'
 $null = New-Item -Path $swKey -Force
 Set-ItemProperty -Path $swKey -Name 'InstallDir' -Value $appDir
-Set-ItemProperty -Path $swKey -Name 'Version' -Value '1.0.3'
+Set-ItemProperty -Path $swKey -Name 'Version' -Value '1.0.4'
 # the menu is text-only: drop icon refs an earlier version may have written
 foreach ($n in @('IconRoot', 'Icon.copyto', 'Icon.mirrorto', 'Icon.moveto', 'Icon.paste', 'Icon.settings')) {
     Remove-ItemProperty -Path $swKey -Name $n -ErrorAction SilentlyContinue
@@ -185,7 +191,7 @@ $null = New-Item -Path $arp -Force
 $uninstallCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$($appDir)\uninstall.ps1`" -RemoveTrust -Pause"
 Copy-Item (Join-Path $repo 'uninstall.ps1') (Join-Path $appDir 'uninstall.ps1') -Force
 Set-ItemProperty -Path $arp -Name 'DisplayName' -Value 'RobocopyTo'
-Set-ItemProperty -Path $arp -Name 'DisplayVersion' -Value '1.0.3'
+Set-ItemProperty -Path $arp -Name 'DisplayVersion' -Value '1.0.4'
 Set-ItemProperty -Path $arp -Name 'Publisher' -Value 'RobocopyTo contributors'
 Set-ItemProperty -Path $arp -Name 'DisplayIcon' -Value $launcherExe
 Set-ItemProperty -Path $arp -Name 'UninstallString' -Value $uninstallCmd

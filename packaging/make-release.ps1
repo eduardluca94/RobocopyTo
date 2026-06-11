@@ -33,6 +33,45 @@ if ($IncludeArm64) {
 & (Join-Path $repo 'native\build.ps1')
 Copy-Item (Join-Path $buildDir 'RobocopyToMenu.dll') (Join-Path $buildDir 'RobocopyToMenu-x64.dll') -Force
 
+# --- 1b. prebuilt launcher + interop (IL = arch-neutral). Installs then skip the
+# per-machine csc compiles: faster, and every user gets identical binaries so
+# AV hash reputation can accrue (fresh-compiled exes look brand new to clouds).
+$csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+if (-not (Test-Path $csc)) { $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe' }
+$preDir = Join-Path $PSScriptRoot 'out\prebuilt'
+$null = New-Item -ItemType Directory -Force -Path $preDir
+& $csc '/nologo', '/target:winexe', '/optimize+', "/out:$preDir\RobocopyTo.exe",
+    '/reference:System.Windows.Forms.dll', (Join-Path $repo 'src\launcher\Launcher.cs') | ForEach-Object { Write-Verbose $_ }
+& $csc '/nologo', '/target:library', '/optimize+', "/out:$preDir\RobocopyTo.Native.dll",
+    '/reference:System.dll', '/reference:System.Core.dll', (Join-Path $repo 'src\Interop.cs') | ForEach-Object { Write-Verbose $_ }
+if (-not (Test-Path "$preDir\RobocopyTo.exe") -or -not (Test-Path "$preDir\RobocopyTo.Native.dll")) {
+    throw 'prebuilt launcher/interop compilation failed'
+}
+
+function Find-RtSignTool {
+    $kits = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+    Get-ChildItem -Path $kits -Directory -Filter '10.*' -ErrorAction SilentlyContinue |
+        Sort-Object Name -Descending |
+        ForEach-Object { Join-Path $_.FullName 'x64\signtool.exe' } |
+        Where-Object { Test-Path $_ } | Select-Object -First 1
+}
+
+function Invoke-RtSign([string[]]$Files) {
+    $signtool = Find-RtSignTool
+    if (-not $signtool) { Write-Warning 'signtool not found - binaries left unsigned'; return }
+    foreach ($f in ($Files | Where-Object { Test-Path $_ })) {
+        if ($PfxPath) {
+            $a = @('sign', '/fd', 'SHA256', '/f', $PfxPath)
+            if ($PfxPassword) { $a += @('/p', $PfxPassword) }
+            & $signtool ($a + $f) | ForEach-Object { Write-Verbose $_ }
+        } else {
+            $cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert |
+                Where-Object { $_.Subject -eq 'CN=RobocopyTo Open Source' } | Select-Object -First 1
+            if ($cert) { & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint $f | ForEach-Object { Write-Verbose $_ } }
+        }
+    }
+}
+
 # --- 2. sparse package (+ public cert export when signing) ---
 $msixArgs = @{ Version = $Version }
 if ($SelfSign) { $msixArgs.SelfSign = $true }
@@ -55,6 +94,11 @@ if ($SelfSign) {
     [System.IO.File]::WriteAllBytes($cerPath, $pfx.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
 }
 
+# sign the shipped binaries with the same identity as the package
+if ($SelfSign -or $PfxPath) {
+    Invoke-RtSign @("$preDir\RobocopyTo.exe", "$preDir\RobocopyTo.Native.dll")
+}
+
 # --- 3. stage a clean repo-layout bundle and zip it ---
 $stage = Join-Path $env:TEMP ('rt-release-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
 $null = New-Item -ItemType Directory -Force -Path $stage
@@ -75,6 +119,7 @@ try {
     foreach ($f in 'install.ps1', 'install.cmd', 'uninstall.ps1', 'uninstall.cmd', 'LICENSE') {
         Copy-Item (Join-Path $repo $f) $stage -Force
     }
+    Copy-Item $preDir (Join-Path $stage 'prebuilt') -Recurse -Force
 
     Remove-Item $dist -Recurse -Force -ErrorAction SilentlyContinue
     $null = New-Item -ItemType Directory -Force -Path $dist
@@ -96,6 +141,7 @@ try {
             '/reference:System.Windows.Forms.dll',
             (Join-Path $PSScriptRoot 'setup-stub.cs') 2>&1 | ForEach-Object { Write-Verbose $_ }
         if (-not (Test-Path $setupExe)) { Write-Warning 'setup exe build failed (the zip + install.ps1 still work)' }
+        elseif ($SelfSign -or $PfxPath) { Invoke-RtSign @($setupExe) }
     }
 
     Write-Output ("dist ready: " + $dist)

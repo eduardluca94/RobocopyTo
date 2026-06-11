@@ -104,9 +104,11 @@ history/logs/settings, `-RemoveTrust` also removes the package certificate trust
 ## Requirements
 
 - Windows 10/11, PowerShell 5.1+ and .NET Framework 4.x (both in-box).
-- Releases ship the prebuilt menu component (x64 + ARM64). Building it from source
-  needs Visual Studio C++ Build Tools; without either, the installer falls back to a
-  registry-verb menu that works the same way.
+- Releases ship CI-built components (menu DLL for x64/ARM64, launcher, interop —
+  signed when the release is signed), so installs are a quick file copy. Installing
+  from a source clone compiles the launcher and interop locally with the in-box C#
+  compiler; the menu DLL additionally needs Visual Studio C++ Build Tools (without
+  them, a registry-verb menu provides the same verbs).
 
 ## Settings
 
