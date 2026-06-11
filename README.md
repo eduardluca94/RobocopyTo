@@ -64,6 +64,14 @@ or download **`RobocopyTo.zip`**, extract, and run `install.ps1` — or double-c
 the kind of unsigned self-extractor that antivirus heuristics sometimes flag; the zip
 and the one-liner are the reliable paths.)
 
+> **If the one-liner stops with "NotFound" or "the downloaded file is not the release
+> bundle":** a web filter or antivirus on your network is intercepting archive
+> downloads from command-line tools (the installer tries three different download
+> stacks and verifies the bytes before trusting them). Download `RobocopyTo.zip` from
+> the [releases page](https://github.com/eduardluca94/RobocopyTo/releases) in a
+> browser instead, extract it, and run `install.ps1` from there — same result,
+> including the top-level-menu option.
+
 From source:
 
 ```powershell
