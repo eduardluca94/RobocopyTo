@@ -136,6 +136,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\native\build.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\packaging\make-release.ps1
 ```
 
+## Credits
+
+Written by [Claude](https://claude.com/claude-code) (Anthropic's AI), directed and
+orchestrated by [eduardluca94](https://github.com/eduardluca94) — the commit
+trailers tell the same story.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
