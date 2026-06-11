@@ -10,6 +10,8 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: write   # the tag-triggered release step uploads dist assets
     steps:
       - uses: actions/checkout@v4
 
