@@ -126,7 +126,7 @@ if ((Test-Path (Join-Path $preDir 'RobocopyTo.exe')) -and (Test-Path (Join-Path 
     if (-not (Test-Path $csc)) { throw 'C# compiler (csc.exe) not found - .NET Framework 4.x is required.' }
     $cscArgs = @(
         '/nologo', '/target:winexe', '/optimize+', "/out:$launcherExe",
-        '/reference:System.Windows.Forms.dll',
+        '/reference:System.Windows.Forms.dll', '/reference:System.Drawing.dll',
         (Join-Path $appDir 'launcher\Launcher.cs')
     )
     & $csc $cscArgs 2>&1 | ForEach-Object { Write-Verbose $_ }
@@ -146,7 +146,7 @@ if ((Test-Path (Join-Path $preDir 'RobocopyTo.exe')) -and (Test-Path (Join-Path 
 $swKey = 'HKCU:\Software\RobocopyTo'
 $null = New-Item -Path $swKey -Force
 Set-ItemProperty -Path $swKey -Name 'InstallDir' -Value $appDir
-Set-ItemProperty -Path $swKey -Name 'Version' -Value '1.0.8'
+Set-ItemProperty -Path $swKey -Name 'Version' -Value '1.0.9'
 # the menu is text-only: drop icon refs an earlier version may have written
 foreach ($n in @('IconRoot', 'Icon.copyto', 'Icon.mirrorto', 'Icon.moveto', 'Icon.paste', 'Icon.settings')) {
     Remove-ItemProperty -Path $swKey -Name $n -ErrorAction SilentlyContinue
@@ -194,7 +194,7 @@ $null = New-Item -Path $arp -Force
 $uninstallCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$($appDir)\uninstall.ps1`" -RemoveTrust -Pause"
 Copy-Item (Join-Path $repo 'uninstall.ps1') (Join-Path $appDir 'uninstall.ps1') -Force
 Set-ItemProperty -Path $arp -Name 'DisplayName' -Value 'RobocopyTo'
-Set-ItemProperty -Path $arp -Name 'DisplayVersion' -Value '1.0.8'
+Set-ItemProperty -Path $arp -Name 'DisplayVersion' -Value '1.0.9'
 Set-ItemProperty -Path $arp -Name 'Publisher' -Value 'RobocopyTo contributors'
 Set-ItemProperty -Path $arp -Name 'DisplayIcon' -Value $launcherExe
 Set-ItemProperty -Path $arp -Name 'UninstallString' -Value $uninstallCmd

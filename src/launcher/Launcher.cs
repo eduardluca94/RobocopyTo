@@ -67,7 +67,38 @@ internal static class Launcher {
         psi.CreateNoWindow = true;
         psi.WindowStyle = ProcessWindowStyle.Hidden;
         try {
-            Process.Start(psi);
+            Process p = Process.Start(psi);
+            // Some machines inspect script hosts at length on launch (observed:
+            // ~60s before PowerShell runs a single line). Stay silent for 2.5s;
+            // after that, show a small cue that closes when the real window shows.
+            int waited = 0;
+            while (!p.HasExited && waited < 2500) {
+                System.Threading.Thread.Sleep(250);
+                waited += 250;
+                p.Refresh();
+                if (p.MainWindowHandle != IntPtr.Zero) return 0;
+            }
+            if (!p.HasExited && p.MainWindowHandle == IntPtr.Zero) {
+                System.Windows.Forms.Form f = new System.Windows.Forms.Form();
+                f.Text = "RobocopyTo";
+                f.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedToolWindow;
+                f.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
+                f.MinimizeBox = false; f.MaximizeBox = false; f.TopMost = true;
+                f.ClientSize = new System.Drawing.Size(300, 64);
+                System.Windows.Forms.Label l = new System.Windows.Forms.Label();
+                l.Dock = System.Windows.Forms.DockStyle.Fill;
+                l.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+                l.Text = "Starting RobocopyTo...\r\nWindows is preparing PowerShell.";
+                f.Controls.Add(l);
+                System.Windows.Forms.Timer tm = new System.Windows.Forms.Timer();
+                tm.Interval = 300;
+                tm.Tick += delegate {
+                    p.Refresh();
+                    if (p.HasExited || p.MainWindowHandle != IntPtr.Zero) { tm.Stop(); f.Close(); }
+                };
+                tm.Start();
+                System.Windows.Forms.Application.Run(f);
+            }
             return 0;
         } catch (Exception ex) {
             // last-resort visibility: this only fires if PowerShell itself cannot start

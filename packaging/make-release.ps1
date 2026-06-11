@@ -41,7 +41,8 @@ if (-not (Test-Path $csc)) { $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framewo
 $preDir = Join-Path $PSScriptRoot 'out\prebuilt'
 $null = New-Item -ItemType Directory -Force -Path $preDir
 & $csc '/nologo', '/target:winexe', '/optimize+', "/out:$preDir\RobocopyTo.exe",
-    '/reference:System.Windows.Forms.dll', (Join-Path $repo 'src\launcher\Launcher.cs') | ForEach-Object { Write-Verbose $_ }
+    '/reference:System.Windows.Forms.dll', '/reference:System.Drawing.dll',
+    (Join-Path $repo 'src\launcher\Launcher.cs') | ForEach-Object { Write-Verbose $_ }
 & $csc '/nologo', '/target:library', '/optimize+', "/out:$preDir\RobocopyTo.Native.dll",
     '/reference:System.dll', '/reference:System.Core.dll', (Join-Path $repo 'src\Interop.cs') | ForEach-Object { Write-Verbose $_ }
 if (-not (Test-Path "$preDir\RobocopyTo.exe") -or -not (Test-Path "$preDir\RobocopyTo.Native.dll")) {
