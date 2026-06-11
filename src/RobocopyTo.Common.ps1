@@ -87,13 +87,17 @@ function New-RtOpId {
 function Open-RtJournal([string]$OpId) {
     $path = Join-Path $script:RtJournalDir ($OpId + '.jsonl')
     $sw = New-Object System.IO.StreamWriter($path, $true, (New-Object System.Text.UTF8Encoding($false)))
-    $sw.AutoFlush = $true
-    return @{ Path = $path; Writer = $sw; OpId = $OpId }
+    $sw.AutoFlush = $false
+    return @{ Path = $path; Writer = $sw; OpId = $OpId; Writes = 0 }
 }
 
 function Write-RtJournal($Journal, [hashtable]$Record) {
     $Record['t'] = [DateTime]::UtcNow.ToString('o')
     $Journal.Writer.WriteLine(($Record | ConvertTo-Json -Compress -Depth 6))
+    # per-file records during small-file storms are batched; everything else
+    # (header/plan/staged/footer/undone) is what recovery reads - flush at once
+    $Journal.Writes = [int]$Journal.Writes + 1
+    if ($Record['kind'] -ne 'fileDone' -or ($Journal.Writes % 64) -eq 0) { $Journal.Writer.Flush() }
 }
 
 function Close-RtJournal($Journal) {

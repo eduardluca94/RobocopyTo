@@ -6,7 +6,7 @@
 # Dark mode: the same structure with the shared dark palette applied through
 # plain property styles (neutral selection, no accent chips) + dark titlebar.
 
-$script:RtVersion = '1.0.5'
+$script:RtVersion = '1.0.6'
 
 # Builds the window XAML for a given theme. Factored out so tests can parse both
 # theme variants without showing a window.

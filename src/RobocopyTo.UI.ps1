@@ -577,6 +577,14 @@ try {
     }.GetNewClosure())
 
     $w.Add_SourceInitialized({ Set-RtDarkTitlebar $w $T.IsDark }.GetNewClosure())
+    # paste has no picker before this window, and a process launched from the shell
+    # may not get foreground rights - front the dialog explicitly so a long transfer
+    # is never running invisibly behind Explorer
+    $w.Add_Loaded({
+        $null = $w.Activate()
+        $w.Topmost = $true
+        $w.Topmost = $false
+    }.GetNewClosure())
     $w.Add_Closed({
         if ($ctx.Phase -eq 'plan' -or $ctx.Phase -eq 'transfer') {
             # closing the window mid-operation = cancel: revert, leave nothing behind
