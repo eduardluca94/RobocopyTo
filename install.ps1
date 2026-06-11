@@ -44,7 +44,15 @@ if (-not $repo -or -not (Test-Path (Join-Path $repo 'src\RobocopyTo.Launch.ps1')
     } else {
         $zipUrl = "https://github.com/$Repo/releases/latest/download/RobocopyTo.zip"
         Say "Downloading $zipUrl"
-        Invoke-WebRequest -Uri $zipUrl -OutFile $zip -UseBasicParsing
+        try {
+            Invoke-WebRequest -Uri $zipUrl -OutFile $zip -UseBasicParsing
+        } catch {
+            # releases 404 briefly while their assets are being swapped; one
+            # patient retry rides out the window
+            Say "  download failed ($($_.Exception.Message.Trim())) - retrying in 10s..."
+            Start-Sleep -Seconds 10
+            Invoke-WebRequest -Uri $zipUrl -OutFile $zip -UseBasicParsing
+        }
     }
     Expand-Archive -Path $zip -DestinationPath $tmp -Force
     $inner = Join-Path $tmp 'install.ps1'
