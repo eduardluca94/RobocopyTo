@@ -311,6 +311,13 @@ Check 'guard: destination inside source folder is rejected' {
     ShouldBeTrue $threw 'copy into own parent rejected (dest == source)'
 }
 
+Check 'guard: drive-root paths never resolve drive-relatively (System32 bug)' {
+    ShouldBe (Get-RtNormalizedPath 'C:') 'C:\' 'bare drive letter pins to the root'
+    ShouldBe (Get-RtNormalizedPath 'C:"') 'C:\' 'quote-mangled drive root pins to the root'
+    ShouldBe (Get-RtNormalizedPath 'C:\') 'C:\' 'drive root unchanged'
+    ShouldBe (Get-RtNormalizedPath ($env:TEMP + '\')) ([System.IO.Path]::GetFullPath($env:TEMP).TrimEnd('\')) 'normal dirs still trim the trailing slash'
+}
+
 Check 'guard: mirror requires folder source' {
     $f = Join-Path $work 'g2\file.txt'
     $null = New-Item -ItemType Directory -Force -Path (Split-Path $f -Parent)

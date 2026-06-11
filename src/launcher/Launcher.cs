@@ -14,6 +14,25 @@ using System.Reflection;
 using System.Text;
 
 internal static class Launcher {
+    // Heals a value mangled upstream by \"-escaping (a drive root sent as "C:\"
+    // arrives as C:") and makes a bare drive letter mean the root - a drive-
+    // relative C: would resolve to the CWD, which is System32 for shell launches.
+    private static string CleanPathArg(string v) {
+        if (string.IsNullOrEmpty(v)) return v;
+        v = v.TrimEnd('"');
+        if (v.Length == 2 && v[1] == ':') v += "\\";
+        return v;
+    }
+
+    // Quotes a value with trailing backslashes doubled so the closing quote
+    // survives the next command-line parse (never strip them - "C:" is not "C:\").
+    private static void AppendQuoted(StringBuilder b, string name, string v) {
+        b.Append(' ').Append(name).Append(" \"").Append(v);
+        int bs = 0;
+        while (bs < v.Length && v[v.Length - 1 - bs] == '\\') bs++;
+        b.Append('\\', bs).Append('"');
+    }
+
     [STAThread]
     private static int Main(string[] argv) {
         string verb = null, path = null, pathFile = null, destination = null;
@@ -33,9 +52,9 @@ internal static class Launcher {
         StringBuilder args = new StringBuilder();
         args.Append("-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -STA -File \"");
         args.Append(script).Append("\" -Verb ").Append(verb);
-        if (!string.IsNullOrEmpty(path))        args.Append(" -Path \"").Append(path.TrimEnd('\\')).Append('"');
-        if (!string.IsNullOrEmpty(pathFile))    args.Append(" -PathFile \"").Append(pathFile).Append('"');
-        if (!string.IsNullOrEmpty(destination)) args.Append(" -Destination \"").Append(destination.TrimEnd('\\')).Append('"');
+        if (!string.IsNullOrEmpty(path))        AppendQuoted(args, "-Path", CleanPathArg(path));
+        if (!string.IsNullOrEmpty(pathFile))    AppendQuoted(args, "-PathFile", pathFile);
+        if (!string.IsNullOrEmpty(destination)) AppendQuoted(args, "-Destination", CleanPathArg(destination));
 
         ProcessStartInfo psi = new ProcessStartInfo();
         psi.FileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),

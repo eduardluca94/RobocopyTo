@@ -199,6 +199,10 @@ function Format-RtSpeed([double]$BytesPerSec) {
 # (drive roots keep "C:\" form).
 function Get-RtNormalizedPath([string]$Path) {
     $p = $Path.Trim('"')
+    # a bare drive letter is drive-RELATIVE: it resolves to that drive's current
+    # directory, which for shell-launched processes is System32. A shell verb can
+    # only ever mean the root, so pin it there before GetFullPath.
+    if ($p -match '^[A-Za-z]:$') { $p += '\' }
     $full = [System.IO.Path]::GetFullPath($p)
     if ($full.Length -gt 3) { $full = $full.TrimEnd('\') }
     return $full

@@ -105,6 +105,21 @@ static bool ClipboardHasFiles() {
     return IsClipboardFormatAvailable(CF_HDROP) != FALSE;
 }
 
+// Appends: --<name> "<path>" with trailing backslashes doubled, so the closing
+// quote survives CommandLineToArgvW. A drive root emitted naively as "C:\" would
+// arrive as C:" and later resolve drive-relatively (= the CWD, i.e. System32).
+static void AppendQuotedPathArg(wchar_t* args, size_t cch, const wchar_t* name, const wchar_t* path) {
+    StringCchCatW(args, cch, L" --");
+    StringCchCatW(args, cch, name);
+    StringCchCatW(args, cch, L" \"");
+    StringCchCatW(args, cch, path);
+    size_t len = wcslen(path);
+    size_t bs = 0;
+    while (bs < len && path[len - 1 - bs] == L'\\') bs++;
+    for (size_t i = 0; i < bs; i++) StringCchCatW(args, cch, L"\\");
+    StringCchCatW(args, cch, L"\"");
+}
+
 // Writes selected paths to a temp file (UTF-8 BOM, one per line). Caller owns no cleanup;
 // the launcher deletes the file after reading it.
 static HRESULT WriteSelectionFile(IShellItemArray* items, wchar_t* outPath, DWORD cch) {
@@ -178,17 +193,13 @@ static HRESULT LaunchVerb(Cmd cmd, IShellItemArray* items, IShellItem* folderFal
                 folderFallback->GetDisplayName(SIGDN_FILESYSPATH, &path);
             }
             if (!path) return E_FAIL;
-            StringCchCatW(args, ARRAYSIZE(args), L" --path \"");
-            StringCchCatW(args, ARRAYSIZE(args), path);
-            StringCchCatW(args, ARRAYSIZE(args), L"\"");
+            AppendQuotedPathArg(args, ARRAYSIZE(args), L"path", path);
             CoTaskMemFree(path);
         } else if (count > 1) {
             wchar_t listFile[MAX_PATH];
             hr = WriteSelectionFile(items, listFile, ARRAYSIZE(listFile));
             if (FAILED(hr)) return hr;
-            StringCchCatW(args, ARRAYSIZE(args), L" --pathfile \"");
-            StringCchCatW(args, ARRAYSIZE(args), listFile);
-            StringCchCatW(args, ARRAYSIZE(args), L"\"");
+            AppendQuotedPathArg(args, ARRAYSIZE(args), L"pathfile", listFile);
         } else {
             PWSTR path = nullptr;
             if (count == 1) {
@@ -201,9 +212,7 @@ static HRESULT LaunchVerb(Cmd cmd, IShellItemArray* items, IShellItem* folderFal
                 folderFallback->GetDisplayName(SIGDN_FILESYSPATH, &path);
             }
             if (!path) return E_FAIL;
-            StringCchCatW(args, ARRAYSIZE(args), L" --path \"");
-            StringCchCatW(args, ARRAYSIZE(args), path);
-            StringCchCatW(args, ARRAYSIZE(args), L"\"");
+            AppendQuotedPathArg(args, ARRAYSIZE(args), L"path", path);
             CoTaskMemFree(path);
         }
     }
