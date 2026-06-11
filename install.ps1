@@ -25,7 +25,10 @@ param(
     [switch]$TopLevelMenu,      # register the Win11 top-level menu without asking
     [switch]$SkipTopLevelMenu,  # never touch the top-level menu / certificates
     [switch]$Quiet,
-    [string]$Repo = 'eduardluca94/RobocopyTo'   # only used by the web bootstrap
+    # only used by the web bootstrap. NOTE: PowerShell variables are case-
+    # INSENSITIVE - never reuse a parameter's name for a body variable (a
+    # "$repo = ..." assignment once blanked this and 404'd every web install).
+    [string]$GitHubRepo = 'eduardluca94/RobocopyTo'
 )
 $ErrorActionPreference = 'Stop'
 function Say($m) { if (-not $Quiet) { Write-Host $m } }
@@ -42,7 +45,7 @@ if (-not $repo -or -not (Test-Path (Join-Path $repo 'src\RobocopyTo.Launch.ps1')
         Say "Using the bundle next to this script: $localZip"
         Copy-Item -LiteralPath $localZip $zip
     } else {
-        $zipUrl = "https://github.com/$Repo/releases/latest/download/RobocopyTo.zip"
+        $zipUrl = "https://github.com/$GitHubRepo/releases/latest/download/RobocopyTo.zip"
         Say "Downloading $zipUrl"
         # AV/web filters sometimes intercept archive downloads for one HTTP stack
         # but not another: try Invoke-WebRequest, then in-box curl.exe (separate
@@ -143,7 +146,7 @@ if ((Test-Path (Join-Path $preDir 'RobocopyTo.exe')) -and (Test-Path (Join-Path 
 $swKey = 'HKCU:\Software\RobocopyTo'
 $null = New-Item -Path $swKey -Force
 Set-ItemProperty -Path $swKey -Name 'InstallDir' -Value $appDir
-Set-ItemProperty -Path $swKey -Name 'Version' -Value '1.0.4'
+Set-ItemProperty -Path $swKey -Name 'Version' -Value '1.0.5'
 # the menu is text-only: drop icon refs an earlier version may have written
 foreach ($n in @('IconRoot', 'Icon.copyto', 'Icon.mirrorto', 'Icon.moveto', 'Icon.paste', 'Icon.settings')) {
     Remove-ItemProperty -Path $swKey -Name $n -ErrorAction SilentlyContinue
@@ -191,7 +194,7 @@ $null = New-Item -Path $arp -Force
 $uninstallCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$($appDir)\uninstall.ps1`" -RemoveTrust -Pause"
 Copy-Item (Join-Path $repo 'uninstall.ps1') (Join-Path $appDir 'uninstall.ps1') -Force
 Set-ItemProperty -Path $arp -Name 'DisplayName' -Value 'RobocopyTo'
-Set-ItemProperty -Path $arp -Name 'DisplayVersion' -Value '1.0.4'
+Set-ItemProperty -Path $arp -Name 'DisplayVersion' -Value '1.0.5'
 Set-ItemProperty -Path $arp -Name 'Publisher' -Value 'RobocopyTo contributors'
 Set-ItemProperty -Path $arp -Name 'DisplayIcon' -Value $launcherExe
 Set-ItemProperty -Path $arp -Name 'UninstallString' -Value $uninstallCmd

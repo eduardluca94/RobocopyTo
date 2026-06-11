@@ -318,6 +318,21 @@ Check 'guard: drive-root paths never resolve drive-relatively (System32 bug)' {
     ShouldBe (Get-RtNormalizedPath ($env:TEMP + '\')) ([System.IO.Path]::GetFullPath($env:TEMP).TrimEnd('\')) 'normal dirs still trim the trailing slash'
 }
 
+Check 'guard: install.ps1 params are never clobbered by body assignments' {
+    # PowerShell variables are case-insensitive: assigning $repo in the body
+    # silently blanks a $Repo parameter (this 404d every "irm | iex" install).
+    $tokens = $null; $errors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $repo 'install.ps1'), [ref]$tokens, [ref]$errors)
+    ShouldBe @($errors).Count 0 'install.ps1 parses clean'
+    $params = @($ast.ParamBlock.Parameters | ForEach-Object { $_.Name.VariablePath.UserPath.ToLowerInvariant() })
+    $assigned = @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst] }, $true) |
+        ForEach-Object { $_.Left } |
+        Where-Object { $_ -is [System.Management.Automation.Language.VariableExpressionAst] } |
+        ForEach-Object { $_.VariablePath.UserPath.ToLowerInvariant() })
+    $clobbered = @($params | Where-Object { $assigned -contains $_ })
+    ShouldBe $clobbered.Count 0 ('params reassigned in body: ' + ($clobbered -join ', '))
+}
+
 Check 'guard: mirror requires folder source' {
     $f = Join-Path $work 'g2\file.txt'
     $null = New-Item -ItemType Directory -Force -Path (Split-Path $f -Parent)
