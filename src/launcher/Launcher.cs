@@ -52,6 +52,8 @@ internal static class Launcher {
         StringBuilder args = new StringBuilder();
         args.Append("-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -STA -File \"");
         args.Append(script).Append("\" -Verb ").Append(verb);
+        // start-time breadcrumb: lets the op log show where click->window time went
+        args.Append(" -T0 ").Append(DateTime.UtcNow.Ticks);
         if (!string.IsNullOrEmpty(path))        AppendQuoted(args, "-Path", CleanPathArg(path));
         if (!string.IsNullOrEmpty(pathFile))    AppendQuoted(args, "-PathFile", pathFile);
         if (!string.IsNullOrEmpty(destination)) AppendQuoted(args, "-Destination", CleanPathArg(destination));

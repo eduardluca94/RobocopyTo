@@ -8,11 +8,28 @@ param(
     [string]$Verb = 'settings',
     [string]$Path,
     [string]$PathFile,
-    [string]$Destination   # bypasses the folder picker (used by tests)
+    [string]$Destination,  # bypasses the folder picker (used by tests)
+    [long]$T0 = 0          # launcher start time (UTC ticks) for startup timing
 )
 $ErrorActionPreference = 'Stop'
 
+$script:RtBootEntry = [DateTime]::UtcNow
 Import-Module (Join-Path $PSScriptRoot 'RobocopyTo.psm1') -Force
+$script:RtBootImported = [DateTime]::UtcNow
+
+# First line of every operation log: where the click-to-work time went.
+# launcher = exe spawn + powershell start, module = import, to-op = everything
+# after import up to the moment the operation begins (clipboard, picker, WPF).
+function Write-RtBootTiming {
+    if ($T0 -le 0) { return }
+    $t0 = New-Object DateTime ($T0, [System.DateTimeKind]::Utc)
+    $now = [DateTime]::UtcNow
+    Write-RtLog ('startup: launcher->ps {0}ms, module {1}ms, to-op {2}ms (total {3}ms)' -f `
+        [int]($script:RtBootEntry - $t0).TotalMilliseconds, `
+        [int]($script:RtBootImported - $script:RtBootEntry).TotalMilliseconds, `
+        [int]($now - $script:RtBootImported).TotalMilliseconds, `
+        [int]($now - $t0).TotalMilliseconds)
+}
 
 function Show-RtError([string]$Message) {
     Initialize-RtWpf
@@ -64,6 +81,7 @@ try {
             }
 
             Open-RtLog $op.OpId
+            Write-RtBootTiming
             $journal = Open-RtJournal $op.OpId
             Write-RtJournal $journal @{ kind = 'header'; op = $op.Mode; opId = $op.OpId
                                         sources = @($op.Sources | ForEach-Object { $_.Path }); dest = $op.Dest }
@@ -91,6 +109,7 @@ try {
             $mode = if ($clip.IsMove) { 'move' } else { 'copy' }
             $op = New-RtOperation -Mode $mode -Sources $usable -Destination $dest
             Open-RtLog $op.OpId
+            Write-RtBootTiming
             $journal = Open-RtJournal $op.OpId
             Write-RtJournal $journal @{ kind = 'header'; op = $op.Mode; opId = $op.OpId; paste = $true
                                         sources = @($op.Sources | ForEach-Object { $_.Path }); dest = $op.Dest }
