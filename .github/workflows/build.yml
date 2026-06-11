@@ -36,10 +36,12 @@ jobs:
         env:
           PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
         run: |
+          $v = "$env:GITHUB_REF_NAME" -replace "^v", ""
+          if ($v -notmatch "^\d+\.\d+\.\d+$") { $v = "1.0.0" }
           if ($env:HAVE_PFX) {
-            .\packaging\make-release.ps1 -IncludeArm64 -PfxPath "$env:RUNNER_TEMP\signing.pfx" -PfxPassword "$env:PFX_PASSWORD"
+            .\packaging\make-release.ps1 -IncludeArm64 -Version "$v.0" -PfxPath "$env:RUNNER_TEMP\signing.pfx" -PfxPassword "$env:PFX_PASSWORD"
           } else {
-            .\packaging\make-release.ps1 -IncludeArm64
+            .\packaging\make-release.ps1 -IncludeArm64 -Version "$v.0"
           }
 
       - name: Run test suite

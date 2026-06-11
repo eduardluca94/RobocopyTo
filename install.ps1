@@ -44,14 +44,38 @@ if (-not $repo -or -not (Test-Path (Join-Path $repo 'src\RobocopyTo.Launch.ps1')
     } else {
         $zipUrl = "https://github.com/$Repo/releases/latest/download/RobocopyTo.zip"
         Say "Downloading $zipUrl"
+        # AV/web filters sometimes intercept archive downloads for one HTTP stack
+        # but not another: try Invoke-WebRequest, then in-box curl.exe (separate
+        # process + stack), then BITS.
+        $got = $false
         try {
             Invoke-WebRequest -Uri $zipUrl -OutFile $zip -UseBasicParsing
-        } catch {
-            # releases 404 briefly while their assets are being swapped; one
-            # patient retry rides out the window
-            Say "  download failed ($($_.Exception.Message.Trim())) - retrying in 10s..."
-            Start-Sleep -Seconds 10
-            Invoke-WebRequest -Uri $zipUrl -OutFile $zip -UseBasicParsing
+            $got = $true
+        } catch { Say ("  Invoke-WebRequest failed: " + $_.Exception.Message.Trim()) }
+        if (-not $got) {
+            $curl = Join-Path $env:SystemRoot 'System32\curl.exe'
+            if (Test-Path $curl) {
+                Say "  retrying with curl..."
+                & $curl -sSL -o $zip $zipUrl 2>$null
+                if ($LASTEXITCODE -eq 0 -and (Test-Path $zip)) { $got = $true }
+            }
+        }
+        if (-not $got) {
+            Say "  retrying with BITS..."
+            try {
+                Import-Module BitsTransfer -ErrorAction Stop
+                Start-BitsTransfer -Source $zipUrl -Destination $zip -ErrorAction Stop
+                $got = $true
+            } catch { }
+        }
+        if (-not $got) {
+            throw "Could not download the release bundle. A web filter or antivirus may be blocking zip downloads on this network - download $zipUrl in a browser, extract it, and run install.ps1 from there."
+        }
+        # a filter can also substitute a block page: make sure these are zip bytes
+        $fs = [System.IO.File]::OpenRead($zip); $magic = New-Object byte[] 2
+        $null = $fs.Read($magic, 0, 2); $fs.Dispose()
+        if ($magic[0] -ne 0x50 -or $magic[1] -ne 0x4B) {
+            throw "The downloaded file is not the release bundle (a web filter may have replaced it) - download $zipUrl in a browser, extract it, and run install.ps1 from there."
         }
     }
     Expand-Archive -Path $zip -DestinationPath $tmp -Force
@@ -113,7 +137,7 @@ Say "  compiled RobocopyTo.Native.dll"
 $swKey = 'HKCU:\Software\RobocopyTo'
 $null = New-Item -Path $swKey -Force
 Set-ItemProperty -Path $swKey -Name 'InstallDir' -Value $appDir
-Set-ItemProperty -Path $swKey -Name 'Version' -Value '1.0.0'
+Set-ItemProperty -Path $swKey -Name 'Version' -Value '1.0.1'
 # the menu is text-only: drop icon refs an earlier version may have written
 foreach ($n in @('IconRoot', 'Icon.copyto', 'Icon.mirrorto', 'Icon.moveto', 'Icon.paste', 'Icon.settings')) {
     Remove-ItemProperty -Path $swKey -Name $n -ErrorAction SilentlyContinue
@@ -161,7 +185,7 @@ $null = New-Item -Path $arp -Force
 $uninstallCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$($appDir)\uninstall.ps1`" -RemoveTrust -Pause"
 Copy-Item (Join-Path $repo 'uninstall.ps1') (Join-Path $appDir 'uninstall.ps1') -Force
 Set-ItemProperty -Path $arp -Name 'DisplayName' -Value 'RobocopyTo'
-Set-ItemProperty -Path $arp -Name 'DisplayVersion' -Value '1.0.0'
+Set-ItemProperty -Path $arp -Name 'DisplayVersion' -Value '1.0.1'
 Set-ItemProperty -Path $arp -Name 'Publisher' -Value 'RobocopyTo contributors'
 Set-ItemProperty -Path $arp -Name 'DisplayIcon' -Value $launcherExe
 Set-ItemProperty -Path $arp -Name 'UninstallString' -Value $uninstallCmd
