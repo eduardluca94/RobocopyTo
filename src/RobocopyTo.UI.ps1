@@ -16,33 +16,105 @@
 
 $script:RtSrcDir = $PSScriptRoot
 
+# System accent color (DWM stores it as an ABGR dword); stock Windows blue when
+# unreadable. Recent Windows builds moved the copy dialog from the classic green
+# to the accent blue, so the progress fill follows the system like Windows does.
+function Get-RtAccentColor {
+    try {
+        $v = [uint32](Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\DWM' -ErrorAction Stop).AccentColor
+        return @{ R = [int]($v -band 0xFF); G = [int](($v -shr 8) -band 0xFF); B = [int](($v -shr 16) -band 0xFF) }
+    } catch { return @{ R = 0; G = 120; B = 212 } }   # #0078D4
+}
+
+# Blends a color toward a target by factor f (0 = color, 1 = target); returns hex.
+function Get-RtMixedColor([hashtable]$C, [int]$TR, [int]$TG, [int]$TB, [double]$F) {
+    return ('#{0:X2}{1:X2}{2:X2}' -f `
+        [int]($C.R + ($TR - $C.R) * $F), [int]($C.G + ($TG - $C.G) * $F), [int]($C.B + ($TB - $C.B) * $F))
+}
+
 function Get-RtTheme {
     $light = 1
     try {
         $light = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' -ErrorAction Stop).AppsUseLightTheme
     } catch { }
+    $ac = Get-RtAccentColor
     if ($light -eq 0) {
+        # dark surfaces use the lighter accent variant, like modern Windows does
+        $fillC = @{ R = [int]($ac.R + (255 - $ac.R) * 0.42); G = [int]($ac.G + (255 - $ac.G) * 0.42); B = [int]($ac.B + (255 - $ac.B) * 0.42) }
+        $fill = Get-RtMixedColor $fillC 0 0 0 0.0
         return @{
             IsDark = $true
             WindowBg = '#202020'; Text = '#FFFFFF'; TextSecondary = '#C9C9C9'
-            BarGreen = '#06B025'; BarPaused = '#CA9F36'; BarError = '#C42B1C'
-            GraphPanel = '#233A1E'; GraphGrid = '#2E4A28'; GraphFill = '#06B025'; GraphBorder = '#404040'
+            BarGreen = $fill; BarPaused = '#CA9F36'; BarError = '#C42B1C'
+            GraphPanel = (Get-RtMixedColor $fillC 32 32 32 0.78)
+            GraphGrid = (Get-RtMixedColor $fillC 32 32 32 0.68)
+            GraphFill = $fill; GraphBorder = '#404040'
             GraphText = '#FFFFFF'
-            BtnGlyph = '#C9C9C9'; BtnHover = '#383838'; Accent = '#4CC2FF'
+            BtnGlyph = '#C9C9C9'; BtnHover = '#383838'; Accent = $fill
             BarTrack = '#404040'; Separator = '#3A3A3A'
             BtnBg = '#2D2D2D'; BtnBorder = '#454545'
         }
     }
+    $fill = Get-RtMixedColor $ac 0 0 0 0.0
     return @{
         IsDark = $false
         WindowBg = '#FFFFFF'; Text = '#1B1B1B'; TextSecondary = '#494949'
-        BarGreen = '#06B025'; BarPaused = '#9D7A00'; BarError = '#C42B1C'
-        GraphPanel = '#A7E591'; GraphGrid = '#8EDD7B'; GraphFill = '#06B025'; GraphBorder = '#BCBCBC'
+        BarGreen = $fill; BarPaused = '#9D7A00'; BarError = '#C42B1C'
+        GraphPanel = (Get-RtMixedColor $ac 255 255 255 0.82)
+        GraphGrid = (Get-RtMixedColor $ac 255 255 255 0.70)
+        GraphFill = $fill; GraphBorder = '#BCBCBC'
         GraphText = '#1B1B1B'
-        BtnGlyph = '#5F5F5F'; BtnHover = '#EAEAEA'; Accent = '#005FB8'
+        BtnGlyph = '#5F5F5F'; BtnHover = '#EAEAEA'; Accent = $fill
         BarTrack = '#E6E6E6'; Separator = '#E5E5E5'
         BtnBg = '#FBFBFB'; BtnBorder = '#D9D9D9'
     }
+}
+
+# Themed message/confirm dialog. The system message box never follows dark mode,
+# so confirmations render through the same palette as the rest of the app: system
+# rendering in light mode, the dark palette in dark mode. Returns the clicked
+# button label, or '' when the window is closed without choosing.
+function Show-RtDialog([string]$Title, [string]$Message, [string[]]$Buttons = @('OK'), [string]$DefaultButton) {
+    Initialize-RtWpf
+    $T = Get-RtTheme
+    $bg = if ($T.IsDark) { $T.WindowBg } else { '{x:Static SystemColors.ControlBrush}' }
+    $fg = if ($T.IsDark) { $T.Text } else { '{x:Static SystemColors.ControlTextBrush}' }
+    $btnStyle = ''
+    if ($T.IsDark) {
+        $btnStyle = '<Style TargetType="Button"><Setter Property="Background" Value="' + $T.BtnBg +
+                    '"/><Setter Property="Foreground" Value="' + $T.Text +
+                    '"/><Setter Property="BorderBrush" Value="' + $T.BtnBorder + '"/></Style>'
+    }
+    $xaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="$Title" SizeToContent="WidthAndHeight" MaxWidth="480" MinWidth="340"
+        ResizeMode="NoResize" WindowStartupLocation="CenterScreen" ShowInTaskbar="False"
+        Background="$bg">
+  <Window.Resources>$btnStyle</Window.Resources>
+  <StackPanel Margin="18,16,18,14">
+    <TextBlock x:Name="Msg" Foreground="$fg" TextWrapping="Wrap" MaxWidth="430"/>
+    <StackPanel x:Name="Btns" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0"/>
+  </StackPanel>
+</Window>
+"@
+    $w = [Windows.Markup.XamlReader]::Parse($xaml)
+    ($w.FindName('Msg')).Text = $Message   # set as property: messages contain quotes/newlines
+    $panel = $w.FindName('Btns')
+    $result = New-Object System.Collections.Generic.List[string]
+    foreach ($label in $Buttons) {
+        $b = New-Object Windows.Controls.Button
+        $b.Content = $label; $b.MinWidth = 88; $b.Margin = '8,0,0,0'; $b.Padding = '12,4,12,5'
+        if (($DefaultButton -and $label -eq $DefaultButton) -or (-not $DefaultButton -and $label -eq $Buttons[0])) { $b.IsDefault = $true }
+        if ($Buttons.Count -gt 1 -and $label -eq $Buttons[$Buttons.Count - 1]) { $b.IsCancel = $true }
+        $b.Add_Click({ $result.Add($label); $w.DialogResult = $true }.GetNewClosure())
+        [void]$panel.Children.Add($b)
+    }
+    $w.Add_SourceInitialized({ Set-RtDarkTitlebar $w $T.IsDark }.GetNewClosure())
+    $w.Add_Loaded({ $null = $w.Activate(); $w.Topmost = $true; $w.Topmost = $false }.GetNewClosure())
+    $null = $w.ShowDialog()
+    if ($result.Count -gt 0) { return $result[0] }
+    return ''
 }
 
 function Format-RtEta([double]$Seconds) {

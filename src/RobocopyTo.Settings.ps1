@@ -6,7 +6,7 @@
 # Dark mode: the same structure with the shared dark palette applied through
 # plain property styles (neutral selection, no accent chips) + dark titlebar.
 
-$script:RtVersion = '1.0.10'
+$script:RtVersion = '1.0.11'
 
 # Builds the window XAML for a given theme. Factored out so tests can parse both
 # theme variants without showing a window.
@@ -194,7 +194,7 @@ function Show-RtSettingsWindow {
         $records = Read-RtJournal $sel.OpId
         $check = Test-RtUndoable $records
         if (-not $check.Ok) { $ui.HistoryStatus.Text = $check.Reason; return }
-        if ([Windows.MessageBox]::Show("Undo this $($sel.Op) operation?", 'Undo - RobocopyTo', 'YesNo', 'Question') -ne 'Yes') { return }
+        if ((Show-RtDialog -Title 'Undo - RobocopyTo' -Message "Undo this $($sel.Op) operation?" -Buttons @('Yes', 'No') -DefaultButton 'Yes') -ne 'Yes') { return }
         $ui.HistoryStatus.Text = 'Undoing...'
         $w.Dispatcher.Invoke([Action]{}, 'Render')
         try {
@@ -238,16 +238,16 @@ function Show-RtSettingsWindow {
         if (-not $installDir) { $installDir = Join-Path $env:LOCALAPPDATA 'RobocopyTo\app' }
         $unins = Join-Path $installDir 'uninstall.ps1'
         if (-not (Test-Path -LiteralPath $unins)) {
-            [void][Windows.MessageBox]::Show('No installed copy was found (running from a source checkout?).', 'Uninstall - RobocopyTo', 'OK', 'Information')
+            $null = Show-RtDialog -Title 'Uninstall - RobocopyTo' -Message 'No installed copy was found (running from a source checkout?).' -Buttons @('OK')
             return
         }
-        $m = [Windows.MessageBox]::Show(
-            "Remove RobocopyTo from this PC?`n`nThis removes the context menu entries, the app files, and the package certificate trust (one admin prompt).",
-            'Uninstall - RobocopyTo', 'YesNo', 'Warning', 'No')
+        $m = Show-RtDialog -Title 'Uninstall - RobocopyTo' -Message `
+            "Remove RobocopyTo from this PC?`n`nThis removes the context menu entries, the app files, and the package certificate trust (one admin prompt)." `
+            -Buttons @('Yes', 'No') -DefaultButton 'No'
         if ($m -ne 'Yes') { return }
-        $purge = [Windows.MessageBox]::Show(
-            "Also delete the operation history, logs and settings?`n`nChoose No to keep them in $env:LOCALAPPDATA\RobocopyTo.",
-            'Uninstall - RobocopyTo', 'YesNo', 'Question', 'No')
+        $purge = Show-RtDialog -Title 'Uninstall - RobocopyTo' -Message `
+            "Also delete the operation history, logs and settings?`n`nChoose No to keep them in $env:LOCALAPPDATA\RobocopyTo." `
+            -Buttons @('Yes', 'No') -DefaultButton 'No'
         $psArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $unins, '-RemoveTrust', '-Pause')
         if ($purge -eq 'Yes') { $psArgs += '-Purge' }
         # detached so the uninstaller outlives this window; close right away to

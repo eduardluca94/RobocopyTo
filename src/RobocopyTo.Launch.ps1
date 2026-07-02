@@ -32,12 +32,18 @@ function Write-RtBootTiming {
 }
 
 function Show-RtError([string]$Message) {
-    Initialize-RtWpf
-    [void][Windows.MessageBox]::Show($Message, 'RobocopyTo', 'OK', 'Error')
+    try { $null = Show-RtDialog -Title 'RobocopyTo' -Message $Message -Buttons @('OK') }
+    catch {
+        Initialize-RtWpf
+        [void][Windows.MessageBox]::Show($Message, 'RobocopyTo', 'OK', 'Error')
+    }
 }
 function Show-RtInfo([string]$Message) {
-    Initialize-RtWpf
-    [void][Windows.MessageBox]::Show($Message, 'RobocopyTo', 'OK', 'Information')
+    try { $null = Show-RtDialog -Title 'RobocopyTo' -Message $Message -Buttons @('OK') }
+    catch {
+        Initialize-RtWpf
+        [void][Windows.MessageBox]::Show($Message, 'RobocopyTo', 'OK', 'Information')
+    }
 }
 
 try {
@@ -86,10 +92,10 @@ try {
                     'Files inside those folders that are not in the sources will be removed. ' +
                     'Cancelling during the transfer puts everything back.'
                 }
-                if ([Windows.MessageBox]::Show($msg, 'Mirror with RobocopyTo', 'YesNo', 'Warning', 'No') -ne 'Yes') { exit 0 }
+                if ((Show-RtDialog -Title 'Mirror with RobocopyTo' -Message $msg -Buttons @('Yes', 'No') -DefaultButton 'No') -ne 'Yes') { exit 0 }
             }
             if ($mode -eq 'move' -and $settings.confirmMove) {
-                if ([Windows.MessageBox]::Show("Move $what into `"$($op.Dest)`"?", 'Move with RobocopyTo', 'YesNo', 'Question') -ne 'Yes') { exit 0 }
+                if ((Show-RtDialog -Title 'Move with RobocopyTo' -Message "Move $what into `"$($op.Dest)`"?" -Buttons @('Yes', 'No') -DefaultButton 'Yes') -ne 'Yes') { exit 0 }
             }
 
             Open-RtLog $op.OpId
@@ -150,7 +156,7 @@ try {
             if (-not $target) { Update-RtLastOpMarker; Show-RtInfo 'Nothing to undo.'; exit 0 }
             $h = $target.Sum.Header
             $msg = "Undo the last operation?`n`n$($h.op): $(@($h.sources) -join ', ')`n-> $($h.dest)"
-            if ([Windows.MessageBox]::Show($msg, 'Undo - RobocopyTo', 'YesNo', 'Question') -ne 'Yes') { exit 0 }
+            if ((Show-RtDialog -Title 'Undo - RobocopyTo' -Message $msg -Buttons @('Yes', 'No') -DefaultButton 'Yes') -ne 'Yes') { exit 0 }
             $r = Invoke-RtUndo -OpId $target.Id -Settings $settings -OnProgress $null
             $note = if ($r.Flagged.Count -gt 0) { "`n$($r.Flagged.Count) item(s) were kept (they replaced existing files, changed since, or were in the way)." } else { '' }
             Show-RtInfo ("Undone." + $note)
