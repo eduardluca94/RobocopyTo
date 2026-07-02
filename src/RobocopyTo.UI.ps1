@@ -228,7 +228,8 @@ function Show-RtOperationUi([hashtable]$Op, [hashtable]$Settings, $Journal, [has
     $srcParent = Split-Path $Op.Sources[0].Path -Parent
     $srcName = if ($srcParent) { Split-Path $srcParent -Leaf } else { $Op.Sources[0].Path }
     if (-not $srcName) { $srcName = $Op.Sources[0].Path }
-    $dstName = Get-RtLeafName $Op.Dest
+    # drive roots read as "C:\" in the header, not the filesystem-safe "C_drive"
+    $dstName = if ($Op.Dest -match '^[A-Za-z]:\\?$') { $Op.Dest } else { Get-RtLeafName $Op.Dest }
     $itemWord = if ($Op.Sources.Count -eq 1) { 'item' } else { 'items' }
     Set-RtHeader $ui.HeaderText $T $verb $Op.Sources.Count $itemWord $srcName $dstName $srcParent $Op.Dest
 

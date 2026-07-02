@@ -71,13 +71,25 @@ try {
             $op = New-RtOperation -Mode $mode -Sources $sources -Destination $dest
 
             if ($mode -eq 'mirror' -and $settings.confirmMirror) {
-                $msg = "Make `"$($op.Dest)`" an exact mirror of $what`?`n`n" +
-                       'Files in the destination that are not in the source will be removed. ' +
-                       'Cancelling during the transfer puts everything back.'
+                # name the TRUE mirror root(s): like Explorer, a folder lands at
+                # <destination>\<folder name> - saying "make C:\ a mirror of abc"
+                # would wrongly suggest the whole destination gets conformed
+                $roots = @($op.Sources | ForEach-Object { Join-Path $op.Dest (Get-RtLeafName $_.Path) })
+                $msg = if ($roots.Count -eq 1) {
+                    "Make `"$($roots[0])`" an exact mirror of $what`?`n`n" +
+                    'Files inside it that are not in the source will be removed. ' +
+                    'Cancelling during the transfer puts everything back.'
+                } else {
+                    "Mirror $what into `"$($op.Dest)`"?`n`n" +
+                    'Each folder becomes an exact mirror at ' +
+                    (($roots | ForEach-Object { '"' + $_ + '"' }) -join ', ') + '. ' +
+                    'Files inside those folders that are not in the sources will be removed. ' +
+                    'Cancelling during the transfer puts everything back.'
+                }
                 if ([Windows.MessageBox]::Show($msg, 'Mirror with RobocopyTo', 'YesNo', 'Warning', 'No') -ne 'Yes') { exit 0 }
             }
             if ($mode -eq 'move' -and $settings.confirmMove) {
-                if ([Windows.MessageBox]::Show("Move $what to `"$($op.Dest)`"?", 'Move with RobocopyTo', 'YesNo', 'Question') -ne 'Yes') { exit 0 }
+                if ([Windows.MessageBox]::Show("Move $what into `"$($op.Dest)`"?", 'Move with RobocopyTo', 'YesNo', 'Question') -ne 'Yes') { exit 0 }
             }
 
             Open-RtLog $op.OpId
